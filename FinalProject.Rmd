@@ -1,0 +1,139 @@
+---
+title: "Final Project"
+author: "Sarah"
+date: "8/17/2019"
+output: html_document
+---
+#Synopsis
+
+In this report I will be creating a model to predict 5 different exercises from the results of sensors on 6 participants. The data was taken from accelerometers on the belt, forearm, arm, and dumbell.
+
+The data for this project come from this source: http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har. 
+
+#How I Built My Model
+
+###Load the data into R
+The caret package is used in the process
+```{r caret}
+set.seed(123)
+library(caret)
+```
+
+```{r loading}
+training = read.csv("~/Desktop/pml-training.csv", na.strings=c("","#DIV/0!","NA"))
+testing = read.csv("~/Desktop/pml-testing.csv")
+dim(training)
+```
+
+I found out really fast that there are a ton of NA values in the training set so I decided to eliminate those columns from the data set especially since there were very few values with data
+```{r nas}
+table(colSums(is.na(training)))
+new<-training[, colSums(is.na(training))<10000] 
+
+sum(is.na(new))
+```
+
+Now there are no NA values left in the data and will make it much easier to create a model
+
+I changed all columns to numeric to further simplify the process.
+
+```{r numeric}
+table(sapply(new, class)) ##old classes
+
+dfnum<-function(mydat){
+    for (i in 1:60){
+        mydat[[i]]<-as.numeric(mydat[[i]])      }
+    mydat
+}
+
+new<-dfnum(new) ##changed all columns to be numeric class
+table(sapply(new, class))
+```
+
+I removed the X variable since I don't want my results to rely on the X value. 
+
+```{r simplify}
+new<-new[-1] ##Remove the X variable
+```
+
+Then, I separated the data into a training and a validation set so that I can check my results.
+
+```{r simplify2}
+inBuild<-createDataPartition(y = new$classe,p=0.7, list = FALSE)
+validation<-new[-inBuild,]##Separate into validation and training sets
+mytrain<-new[inBuild,]
+```
+
+###Random Forest Model
+
+Thanks to some help from the mentor and our nice class forum, I was able to create a random forest regression model.
+
+```{r rfmodel, cache=TRUE, dependson=-2}
+x <- mytrain[,-59]
+y <- mytrain[,59]
+
+library(parallel)
+library(doParallel)
+mycluster <- makeCluster(detectCores() - 1)
+registerDoParallel(mycluster)
+fitControl <- trainControl(method = "cv",number = 2,allowParallel = TRUE)
+
+rffit <- train(x,factor(y), method="rf",data=mytrain,trControl = fitControl)
+
+stopCluster(mycluster)
+registerDoSEQ()
+rfpred<-predict(rffit, validation)
+```
+
+###Support Vector Machine Method:
+```{r svm, cache=TRUE}
+library(e1071)
+svmfit<-svm(factor(classe)~.,data =mytrain)
+svmpred<-predict(svmfit, validation)
+```
+
+###Linear Discriminant Analysis Method:
+```{r ldamodel, cache=TRUE}
+ldafit<-train(factor(classe)~., method = "lda", data = mytrain)
+ldapred<-predict(ldafit,validation)
+```
+
+Then I tested the different models against the validation test set to see which one performed the best.
+
+```{r accuracy}
+myvalid<-validation$classe
+
+rfacc<-sum(myvalid==rfpred)/length(myvalid)
+svmacc<-sum(myvalid==svmpred)/length(myvalid)
+ldaacc<-sum(myvalid==ldapred)/length(myvalid)
+myacc<-data.frame(rfacc,svmacc,ldaacc)
+myacc
+
+```
+
+I had previously planned to use model stacking, but with an accuracy rate of above 99%, I decided it was high enough for this exercise and I will save the other calculations for a different project. I used the random forest model as my final model.
+
+Here's the results from using the random forest model on the validation set.
+```{r plotrf, fig.width=4, fig.height = 4, fig.align='center'}
+confusionMatrix(rfpred,as.factor(validation$classe))
+```
+
+###Cross Validation
+
+In my project I performed cross validation using the trainControl function. With method = cv and number = 5, I performed a cross validation with 5 resampling iterations. I also used cross validation by comparing with other models.
+
+###Expected Out of Sample Error
+
+We can expect that the out of sample error will be about the same as what it was when we tested it on the validation data set.
+```{r accagain}
+myacc$rfacc
+```
+
+We can also look at the Root Mean Squared Error values of each (the expected standard deviation of the residuals)
+```{r RMSE}
+rfrmse<-sqrt(sum((as.numeric(rfpred)-myvalid)^2))
+svrmse<-sqrt(sum((as.numeric(svmpred)-myvalid)^2))
+ldarmse<-sqrt(sum((as.numeric(ldapred)-myvalid)^2))
+myrmse<-data.frame(rfrmse,svrmse,ldarmse)
+myrmse
+```
