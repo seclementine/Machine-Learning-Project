@@ -6,7 +6,7 @@ output: html_document
 ---
 #Synopsis
 
-In this report I will be creating a model to predict 5 different exercises from the results of sensors on 6 participants. The data was taken from accelerometers on the belt, forearm, arm, and dumbell.
+In this report I will be creating a model to predict 5 different exercises from the results of sensors on 6 participants. The data was taken from accelerometers on the belt, forearm, arm, and dumbbell.
 
 The data for this project come from this source: http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har. 
 
@@ -25,7 +25,10 @@ testing = read.csv("~/Desktop/pml-testing.csv")
 dim(training)
 ```
 
-I found out really fast that there are a ton of NA values in the training set so I decided to eliminate those columns from the data set especially since there were very few values with data
+I found out really fast that there are a ton of NA values in the training set so I decided to eliminate those columns from the data set especially since there were very few values comparatively on those columns (more than 98% NA values). 
+
+In this situation, I considered a no value "" and "#DIV/0!" to also excluded as an NA value.
+
 ```{r nas}
 table(colSums(is.na(training)))
 new<-training[, colSums(is.na(training))<10000] 
@@ -50,7 +53,13 @@ new<-dfnum(new) ##changed all columns to be numeric class
 table(sapply(new, class))
 ```
 
-I removed the X variable since I don't want my results to rely on the X value. 
+I checked to see if there was correlation between the X variable and classe variable by plotting it
+
+```{r plotx}
+plot(new$X, new$classe)
+```
+
+There is a high correlation and since I don't want the model to be correlated with the number of the question, I removed the X variable. 
 
 ```{r simplify}
 new<-new[-1] ##Remove the X variable
@@ -113,14 +122,16 @@ myacc
 
 I had previously planned to use model stacking, but with an accuracy rate of above 99%, I decided it was high enough for this exercise and I will save the other calculations for a different project. I used the random forest model as my final model.
 
-Here's the results from using the random forest model on the validation set.
+Here's the resulting Confusion Matrix from using the random forest model on the validation set.
 ```{r plotrf, fig.width=4, fig.height = 4, fig.align='center'}
 confusionMatrix(rfpred,as.factor(validation$classe))
 ```
 
+This is a quite useful test because it shows the sensitivity and specificity for each exercise. The errors occurred only when predicting 4 (or D).
+
 ###Cross Validation
 
-In my project I performed cross validation using the trainControl function. With method = cv and number = 5, I performed a cross validation with 5 resampling iterations. I also used cross validation by comparing with other models.
+In my project I performed cross validation using the trainControl function. With method = cv and number = 5, I performed a cross validation with 5 re-sampling iterations. I also used cross validation by comparing with other models.
 
 ###Expected Out of Sample Error
 
