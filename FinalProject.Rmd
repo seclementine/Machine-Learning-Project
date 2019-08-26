@@ -148,3 +148,9 @@ ldarmse<-sqrt(sum((as.numeric(ldapred)-myvalid)^2))
 myrmse<-data.frame(rfrmse,svrmse,ldarmse)
 myrmse
 ```
+
+###Conclusion
+
+In conclusion, there was a really high accuracy rate by including all 51 variables and any wrong predictions, my second guess would be 4 or D.
+
+Thanks for the review!
